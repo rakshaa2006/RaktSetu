@@ -7,19 +7,20 @@ from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select, text
 from sqlalchemy.orm import Session
 
+from app.core.auth import get_authenticated_bank_id, verify_bank_identity
 from app.core.config import FRESHNESS
 from app.core.errors import NotFoundError, RuleViolation
 from app.core.geo import distance_km
-from app.core.rules import (BLOOD_GROUPS, CANDIDATE_STATUSES, CANDIDATE_TRANSITIONS, COMPONENTS, GENDERS,
+from app.core.rules import (APPROVAL_STATUSES, BLOOD_GROUPS, CANDIDATE_STATUSES, CANDIDATE_TRANSITIONS, COMPONENTS, GENDERS,
                             MATCH_RULES_DOC, REQUEST_STATUSES, REQUEST_TRANSITIONS, URGENCIES)
 from app.database import get_db, utcnow
 from app.models import AuditEvent, BloodBank, BloodRequest, Donor, RankingSnapshot
 from app.schemas.schemas import (AllocationCreate, AllocationOut, AllocationReleaseIn, AllocationResultOut,
                                  AuditEventOut, BloodBankOut, BloodGroup, Component, DashboardOut, DonorOut,
                                  EventCreate, EventResultOut, HealthOut, LocationOut, MetaOut,
-                                 RecommendationsOut, RequestCreate, RequestOut, SnapshotOut, SnapshotSummary,
-                                 StatusUpdate)
-from app.services import allocations, audit, coordination
+                                 RecommendationsOut, RejectionCreate, RequestCreate, RequestOut, SnapshotOut,
+                                 SnapshotSummary, StatusUpdate)
+from app.services import allocations, approval, audit, coordination
 from app.services.freshness import LABEL_LEGEND, assess_freshness, verification_label
 from app.services.ranking import DISCLAIMER
 from app.services.recovery import EVENT_RULES
@@ -102,6 +103,7 @@ def meta():
     return MetaOut(
         blood_groups=list(BLOOD_GROUPS), components=list(COMPONENTS), genders=list(GENDERS),
         urgencies=list(URGENCIES), request_statuses=list(REQUEST_STATUSES),
+        approval_statuses=list(APPROVAL_STATUSES),
         candidate_statuses=list(CANDIDATE_STATUSES),
         request_transitions={k: sorted(v) for k, v in REQUEST_TRANSITIONS.items()},
         candidate_transitions={k: sorted(v) for k, v in CANDIDATE_TRANSITIONS.items()},
@@ -149,6 +151,48 @@ def donors(near_lat: Optional[float] = Query(None, ge=-90, le=90),
                     **_freshness_dict(d, now, near))
            for d in db.scalars(stmt)]
     return _sorted(out, near)
+
+
+# -------------------------------------------------------------- bank inbox
+@router.get("/blood-banks/inbox", response_model=List[RequestOut], tags=["blood-banks"])
+def get_my_inbox(
+    status: Optional[str] = Query(None),
+    approval_status: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    bank_id: str = Depends(get_authenticated_bank_id),
+    db: Session = Depends(get_db),
+):
+    """List blood requests targeted to the authenticated blood bank."""
+    return approval.get_inbox_requests(
+        db=db,
+        bank_id=bank_id,
+        status=status,
+        approval_status=approval_status,
+        limit=limit,
+        offset=offset,
+    )
+
+
+@router.get("/blood-banks/{bank_id}/inbox", response_model=List[RequestOut], tags=["blood-banks"])
+def get_bank_inbox(
+    bank_id: str,
+    status: Optional[str] = Query(None),
+    approval_status: Optional[str] = Query(None),
+    limit: int = Query(50, ge=1, le=200),
+    offset: int = Query(0, ge=0),
+    verified_bank_id: str = Depends(verify_bank_identity),
+    db: Session = Depends(get_db),
+):
+    """List blood requests targeted to the specified blood bank (token-verified)."""
+    return approval.get_inbox_requests(
+        db=db,
+        bank_id=verified_bank_id,
+        status=status,
+        approval_status=approval_status,
+        limit=limit,
+        offset=offset,
+    )
 
 
 # ----------------------------------------------------------------- requests
@@ -244,6 +288,55 @@ def patch_status(request_id: str, payload: StatusUpdate, db: Session = Depends(g
     _event, req = coordination.update_status(db, request_id, payload.status, payload.reason,
                                              payload.simulated_confirmation)
     return req
+
+
+# ----------------------------------------------------------- approval workflow
+@router.post("/requests/{request_id}/approve", response_model=RequestOut, tags=["requests"])
+def approve_request(
+    request_id: str,
+    bank_id: str = Depends(get_authenticated_bank_id),
+    db: Session = Depends(get_db),
+):
+    """Explicitly approve a blood request targeted to the authenticated blood bank."""
+    return approval.approve_request(db=db, request_id=request_id, acting_bank_id=bank_id)
+
+
+@router.post("/blood-banks/{bank_id}/requests/{request_id}/approve", response_model=RequestOut, tags=["blood-banks"])
+def bank_approve_request(
+    bank_id: str,
+    request_id: str,
+    verified_bank_id: str = Depends(verify_bank_identity),
+    db: Session = Depends(get_db),
+):
+    """Explicitly approve a blood request targeted to bank_id (token-verified)."""
+    return approval.approve_request(db=db, request_id=request_id, acting_bank_id=verified_bank_id)
+
+
+@router.post("/requests/{request_id}/reject", response_model=RequestOut, tags=["requests"])
+def reject_request(
+    request_id: str,
+    payload: RejectionCreate,
+    bank_id: str = Depends(get_authenticated_bank_id),
+    db: Session = Depends(get_db),
+):
+    """Explicitly reject a blood request targeted to the authenticated blood bank."""
+    return approval.reject_request(
+        db=db, request_id=request_id, acting_bank_id=bank_id, reason=payload.reason
+    )
+
+
+@router.post("/blood-banks/{bank_id}/requests/{request_id}/reject", response_model=RequestOut, tags=["blood-banks"])
+def bank_reject_request(
+    bank_id: str,
+    request_id: str,
+    payload: RejectionCreate,
+    verified_bank_id: str = Depends(verify_bank_identity),
+    db: Session = Depends(get_db),
+):
+    """Explicitly reject a blood request targeted to bank_id (token-verified)."""
+    return approval.reject_request(
+        db=db, request_id=request_id, acting_bank_id=verified_bank_id, reason=payload.reason
+    )
 
 
 # ---------------------------------------------------------------- dashboard
