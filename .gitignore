@@ -1,0 +1,23 @@
+# Python
+.venv/
+venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+# Node
+node_modules/
+frontend/dist/
+# Local config and data
+.env
+.env.local
+*.env
+!.env.example
+backend/*.db
+backend/*.db-journal
+*.sqlite3
+# Logs / OS / editor
+*.log
+.DS_Store
+Thumbs.db
+.vscode/*
+!.vscode/extensions.json

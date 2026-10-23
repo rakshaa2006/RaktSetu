@@ -1,0 +1,25 @@
+donor_id,display_name,blood_group,location,latitude,longitude,consent_status,availability_status,response_status,last_updated_hours_ago,data_source
+DN-001,Donor Maple-01,O+,Shivajinagar,18.5290,73.8490,consented_demo,reported_available,responsive,1,Simulated demonstration record
+DN-002,Donor Maple-02,O+,Kothrud,18.5100,73.8100,consented_demo,confirmed_available,responsive,2,Simulated demonstration record
+DN-003,Donor Cedar-03,O-,Hadapsar,18.5100,73.9250,consented_demo,reported_available,responsive,3,Simulated demonstration record
+DN-004,Donor Cedar-04,O+,Baner,18.5600,73.7900,consented_demo,reported_available,no_recent_response,20,Simulated demonstration record
+DN-005,Donor Birch-05,O+,Viman Nagar,18.5690,73.9150,consented_demo,reported_available,declined_recently,5,Simulated demonstration record
+DN-006,Donor Birch-06,A+,Swargate,18.5030,73.8650,consented_demo,reported_available,responsive,2,Simulated demonstration record
+DN-007,Donor Willow-07,A+,Aundh (coordinates not on file),,,consented_demo,reported_available,responsive,1,Simulated demonstration record
+DN-008,Donor Willow-08,B+,Katraj,18.4590,73.8690,consented_demo,unverified,responsive,10,Simulated demonstration record
+DN-009,Donor Aspen-09,O+,Hinjewadi,18.5900,73.7400,consented_demo,reported_available,responsive,40,Simulated demonstration record
+DN-010,Donor Aspen-10,AB+,Kharadi,18.5520,73.9340,consented_demo,reported_available,responsive,2,Simulated demonstration record
+DN-011,Donor Teak-11,O+,Pimpri,18.6290,73.8010,not_consented,reported_available,responsive,1,Simulated demonstration record
+DN-012,Donor Teak-12,B-,Wakad,18.5980,73.7900,consented_demo,reported_available,responsive,4,Simulated demonstration record
+DN-013,Donor Neem-13,O-,Shivajinagar,18.5330,73.8500,consented_demo,confirmed_available,responsive,1,Simulated demonstration record
+DN-014,Donor Neem-14,A-,Kothrud,18.5080,73.8070,consented_demo,reported_available,responsive,6.5,Simulated demonstration record
+DN-015,Donor Banyan-15,O+,Hadapsar,18.5095,73.9265,consented_demo,unknown,responsive,,Simulated demonstration record - no timestamp
+DN-016,Donor Banyan-16,AB-,Baner,18.5585,73.7860,consented_demo,unverified,unknown,9,Simulated demonstration record
+DN-017,Donor Palm-17,O+,Swargate,18.5010,73.8640,consented_demo,reported_available,responsive,INVALID,Simulated demonstration record - bad timestamp
+DN-018,Donor Palm-18,B+,Viman Nagar,18.5670,73.9130,unknown,reported_available,responsive,2,Simulated demonstration record
+DN-019,Donor Fig-19,A+,Pimpri,18.6270,73.8020,consented_demo,reported_available,no_recent_response,3,Simulated demonstration record
+DN-020,Donor Fig-20,O+,Katraj,18.4570,73.8680,consented_demo,unavailable,responsive,2,Simulated demonstration record
+DN-021,Donor Olive-21,O-,Kharadi,18.5510,73.9350,consented_demo,reported_available,responsive,0.5,Simulated demonstration record
+DN-022,Donor Olive-22,O+,Pune (area not on file),,,consented_demo,reported_available,responsive,2,Simulated demonstration record
+DN-023,Donor Pine-23,B+,Wakad,18.5970,73.7890,consented_demo,confirmed_available,responsive,3,Simulated demonstration record
+DN-024,Donor Pine-24,A+,Hinjewadi,18.5915,73.7395,consented_demo,reported_available,declined_recently,7,Simulated demonstration record
