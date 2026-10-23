@@ -23,7 +23,9 @@ export default function RequestSummary({ request }) {
           <dl className="facts facts-stack">
             <div><dt>Request ID</dt><dd>{request.id}</dd></div>
             <div><dt>Component needed</dt><dd>{request.component}</dd></div>
-            <div><dt>Units needed</dt><dd>{request.units_required}</dd></div>
+            <div><dt>Units required</dt><dd>{request.units_required}</dd></div>
+            <div><dt>Units allocated</dt><dd><strong>{request.allocated_units ?? 0}</strong> / {request.units_required}</dd></div>
+            <div><dt>Units remaining</dt><dd><strong>{request.remaining_units ?? Math.max(0, request.units_required - (request.allocated_units ?? 0))}</strong></dd></div>
             <div><dt>Urgency</dt><dd><StatusBadge kind="urgency" value={request.urgency} /></dd></div>
             <div><dt>Status</dt><dd><StatusBadge kind="request" value={request.status} /></dd></div>
             <div><dt>Hospital</dt><dd>{request.hospital_name}, {request.hospital_location}</dd></div>

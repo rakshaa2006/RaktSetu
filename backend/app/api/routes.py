@@ -14,11 +14,12 @@ from app.core.rules import (BLOOD_GROUPS, CANDIDATE_STATUSES, CANDIDATE_TRANSITI
                             MATCH_RULES_DOC, REQUEST_STATUSES, REQUEST_TRANSITIONS, URGENCIES)
 from app.database import get_db, utcnow
 from app.models import AuditEvent, BloodBank, BloodRequest, Donor, RankingSnapshot
-from app.schemas.schemas import (AuditEventOut, BloodBankOut, BloodGroup, Component, DashboardOut, DonorOut,
+from app.schemas.schemas import (AllocationCreate, AllocationOut, AllocationReleaseIn, AllocationResultOut,
+                                 AuditEventOut, BloodBankOut, BloodGroup, Component, DashboardOut, DonorOut,
                                  EventCreate, EventResultOut, HealthOut, LocationOut, MetaOut,
                                  RecommendationsOut, RequestCreate, RequestOut, SnapshotOut, SnapshotSummary,
                                  StatusUpdate)
-from app.services import audit, coordination
+from app.services import allocations, audit, coordination
 from app.services.freshness import LABEL_LEGEND, assess_freshness, verification_label
 from app.services.ranking import DISCLAIMER
 from app.services.recovery import EVENT_RULES
@@ -153,7 +154,10 @@ def donors(near_lat: Optional[float] = Query(None, ge=-90, le=90),
 # ----------------------------------------------------------------- requests
 @router.get("/requests", response_model=List[RequestOut], tags=["requests"])
 def list_requests(db: Session = Depends(get_db)):
-    return list(db.scalars(select(BloodRequest).order_by(BloodRequest.created_at.desc(), BloodRequest.id)))
+    rows = list(db.scalars(select(BloodRequest).order_by(BloodRequest.created_at.desc(), BloodRequest.id)))
+    for r in rows:
+        r.allocated_units = allocations.get_allocated_units(db, r.id)
+    return rows
 
 
 @router.post("/requests", response_model=RequestOut, status_code=201, tags=["requests"])
@@ -164,6 +168,46 @@ def create_request(payload: RequestCreate, db: Session = Depends(get_db)):
 @router.get("/requests/{request_id}", response_model=RequestOut, tags=["requests"])
 def get_request(request_id: str, db: Session = Depends(get_db)):
     return coordination.get_request_or_404(db, request_id)
+
+
+# -------------------------------------------------------------- allocations
+@router.get("/requests/{request_id}/allocations", response_model=List[AllocationOut], tags=["allocations"])
+def get_allocations(request_id: str, db: Session = Depends(get_db)):
+    coordination.get_request_or_404(db, request_id)
+    return allocations.get_all_allocations(db, request_id)
+
+
+@router.post("/requests/{request_id}/allocations", response_model=AllocationResultOut, status_code=201, tags=["allocations"])
+def create_allocation(request_id: str, payload: AllocationCreate, db: Session = Depends(get_db)):
+    alloc, req = allocations.create_allocation(
+        db, request_id, payload.candidate_type, payload.candidate_id, payload.units, payload.idempotency_key
+    )
+    alloc_units = allocations.get_allocated_units(db, req.id)
+    req.allocated_units = alloc_units
+    return AllocationResultOut(
+        allocation=AllocationOut.model_validate(alloc),
+        request=RequestOut.model_validate(req),
+        allocated_units=alloc_units,
+        units_required=req.units_required,
+        remaining_units=max(0, req.units_required - alloc_units),
+        request_status=req.status,
+    )
+
+
+@router.post("/requests/{request_id}/allocations/{allocation_id}/release", response_model=AllocationResultOut, tags=["allocations"])
+def release_allocation(request_id: str, allocation_id: str, payload: Optional[AllocationReleaseIn] = None, db: Session = Depends(get_db)):
+    reason = payload.reason if payload else None
+    alloc, req = allocations.release_allocation(db, request_id, allocation_id, reason)
+    alloc_units = allocations.get_allocated_units(db, req.id)
+    req.allocated_units = alloc_units
+    return AllocationResultOut(
+        allocation=AllocationOut.model_validate(alloc),
+        request=RequestOut.model_validate(req),
+        allocated_units=alloc_units,
+        units_required=req.units_required,
+        remaining_units=max(0, req.units_required - alloc_units),
+        request_status=req.status,
+    )
 
 
 @router.get("/requests/{request_id}/recommendations", response_model=RecommendationsOut, tags=["requests"])

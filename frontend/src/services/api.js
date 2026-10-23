@@ -69,4 +69,8 @@ export const api = {
   getTimeline: (id) => request(`/api/requests/${enc(id)}/timeline`),
   postEvent: (id, body) => request(`/api/requests/${enc(id)}/events`, { method: "POST", body }),
   updateStatus: (id, body) => request(`/api/requests/${enc(id)}/status`, { method: "PATCH", body }),
+  getAllocations: (id) => request(`/api/requests/${enc(id)}/allocations`),
+  createAllocation: (id, body) => request(`/api/requests/${enc(id)}/allocations`, { method: "POST", body }),
+  releaseAllocation: (id, allocId, body) =>
+    request(`/api/requests/${enc(id)}/allocations/${enc(allocId)}/release`, { method: "POST", body }),
 };

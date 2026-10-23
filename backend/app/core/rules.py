@@ -35,7 +35,7 @@ CANDIDATE_STATUSES = (
 # ---- Request transitions ---------------------------------------------------
 REQUEST_TRANSITIONS = {
     "open": {"under_review", "cancelled"},
-    "under_review": {"open", "awaiting_confirmation", "cancelled"},
+    "under_review": {"open", "awaiting_confirmation", "partially_fulfilled", "fulfilled", "cancelled"},
     "awaiting_confirmation": {"under_review", "partially_fulfilled", "fulfilled", "cancelled"},
     "partially_fulfilled": {"awaiting_confirmation", "under_review", "fulfilled", "cancelled"},
     "fulfilled": set(),

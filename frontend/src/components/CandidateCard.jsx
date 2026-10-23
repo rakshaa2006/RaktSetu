@@ -2,7 +2,7 @@ import { MATCH_TEXT, allowedEvents, formatAge, formatDateTime } from "../utils/f
 import EventButtons from "./EventButtons.jsx";
 import StatusBadge from "./StatusBadge.jsx";
 
-export default function CandidateCard({ item, meta, onAction, busy, readOnly }) {
+export default function CandidateCard({ item, meta, onAction, onAllocate, busy, readOnly }) {
   const excluded = item.rank === null || item.rank === undefined;
   const events = readOnly ? [] : allowedEvents(item, meta);
   const kind = item.candidate_type === "blood_bank" ? "Blood bank" : "Registered donor";
@@ -30,7 +30,10 @@ export default function CandidateCard({ item, meta, onAction, busy, readOnly }) 
         <dl className="facts">
           <div><dt>Blood group</dt><dd>{item.blood_group}</dd></div>
           {item.component && <div><dt>Component</dt><dd>{item.component}</dd></div>}
-          {item.candidate_type === "blood_bank" && <div><dt>Units reported</dt><dd>{item.units_available}</dd></div>}
+          <div>
+            <dt>Allocation capacity</dt>
+            <dd>{item.candidate_type === "blood_bank" ? `${item.units_available ?? 0} unit(s) reported stock` : "1 unit maximum"}</dd>
+          </div>
           <div>
             <dt>Last updated</dt>
             <dd>{item.last_updated ? `${formatDateTime(item.last_updated)} (${formatAge(item.age_hours)})` : "Not recorded or unreadable"}</dd>
@@ -60,9 +63,21 @@ export default function CandidateCard({ item, meta, onAction, busy, readOnly }) 
           </>
         )}
 
-        {!readOnly && events.length > 0 && (
-          <details className="actions">
+        {!readOnly && (events.length > 0 || (onAllocate && item.review_status === "confirmed_available")) && (
+          <details className="actions" open={item.review_status === "confirmed_available"}>
             <summary>Actions for this option</summary>
+            {item.review_status === "confirmed_available" && onAllocate && (
+              <div className="btn-row" style={{ marginBottom: "0.5rem" }}>
+                <button
+                  type="button"
+                  className="btn btn-primary"
+                  disabled={busy}
+                  onClick={() => onAllocate(item)}
+                >
+                  Allocate units ({item.candidate_type === "blood_bank" ? "reserve stock" : "1 unit"})
+                </button>
+              </div>
+            )}
             <EventButtons candidate={item} events={events} onAction={onAction} busy={busy} />
           </details>
         )}

@@ -7,6 +7,7 @@ __pycache__/
 # Node
 node_modules/
 frontend/dist/
+dist/
 # Local config and data
 .env
 .env.local
@@ -14,6 +15,8 @@ frontend/dist/
 !.env.example
 backend/*.db
 backend/*.db-journal
+backend/*.db-wal
+backend/*.db-shm
 *.sqlite3
 # Logs / OS / editor
 *.log
@@ -21,3 +24,20 @@ backend/*.db-journal
 Thumbs.db
 .vscode/*
 !.vscode/extensions.json
+
+# Exclude nested duplicate repository
+/RaktSetu/
+
+# Additional secrets
+*.key
+*.pem
+credentials.json
+secrets.json
+
+# Local Python environments and generated files
+.env-venv/
+*.py[cod]
+
+# Frontend generated output
+frontend/build/
+frontend/coverage/

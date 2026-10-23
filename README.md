@@ -83,8 +83,27 @@ Copy the `.env.example` files to use them. No API keys, paid services, Docker or
 2. On the request page, read the #1 option's explanation, then the stale and unknown-time options lower down.
 3. Open **Failure simulation**, choose the #1 blood bank, and apply "Blood bank reports stock unavailable". See the new ranking, the "What changed" box, and the timeline entry.
 4. Pick a donor and apply "Donor declines" - it moves to "Not recommended" and cannot be selected again unless reinstated with a reason.
-5. Select an option for review, mark it "Confirmed (simulated)", then mark the request fulfilled (simulated).
+5. Select an option for review, mark it "Confirmed (simulated)", click "Allocate units" to allocate units from stock/donor, and observe that request status updates to fulfilled when required units are met.
 6. Open **Ranking history** to view version 1 side by side with the latest.
+
+## Creating a clean source archive
+
+To package a clean source archive without nested Git metadata, generated dependencies, caches, or build artifacts:
+
+```powershell
+# From the repository root (D:\RaktSetu\RaktSetu):
+git archive --format=zip --output=../RaktSetu-clean.zip HEAD
+```
+
+Or using standard exclusions when archiving manually:
+Exclude:
+- `.git/` and any nested `.git/` directories
+- `node_modules/` and `frontend/node_modules/`
+- `frontend/dist/`
+- `__pycache__/` and `*.pyc`
+- `.pytest_cache/`
+- Stale redundant trees such as `docs/backend/` and nested duplicate copies `RaktSetu/`
+- Local runtime databases (`backend/*.db`, `*.sqlite3`, `*.db-wal`, `*.db-shm`)
 
 ## Important limitations
 

@@ -69,6 +69,46 @@ class RequestOut(BaseModel):
     created_at: datetime
     updated_at: datetime
     is_demo_data: bool = True
+    allocated_units: int = 0
+    remaining_units: int = 0
+
+
+class AllocationCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    candidate_type: CandidateType
+    candidate_id: str = Field(min_length=1, max_length=32, pattern=r"^[A-Za-z0-9\-_]+$")
+    units: StrictUnits = 1
+    idempotency_key: Optional[str] = Field(default=None, max_length=64)
+
+
+class AllocationReleaseIn(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    reason: Optional[str] = Field(default=None, max_length=300)
+
+
+class AllocationOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+
+    id: str
+    request_id: str
+    candidate_type: str
+    candidate_id: str
+    units: int
+    status: str
+    idempotency_key: Optional[str] = None
+    created_at: datetime
+    updated_at: datetime
+
+
+class AllocationResultOut(BaseModel):
+    allocation: AllocationOut
+    request: RequestOut
+    allocated_units: int
+    units_required: int
+    remaining_units: int
+    request_status: str
 
 
 class StatusUpdate(BaseModel):

@@ -72,6 +72,17 @@ class BloodRequest(Base):
     status: Mapped[str] = mapped_column(String(32), default="open")
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    @property
+    def allocated_units(self) -> int:
+        return getattr(self, "_allocated_units", 0)
+
+    @allocated_units.setter
+    def allocated_units(self, value: int) -> None:
+        self._allocated_units = value
+
+    @property
+    def remaining_units(self) -> int:
+        return max(0, self.units_required - self.allocated_units)
 
 
 class CandidateState(Base):
@@ -117,3 +128,27 @@ class AuditEvent(Base):
     new_state: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     reason: Mapped[str] = mapped_column(Text)
     is_simulation: Mapped[bool] = mapped_column(Boolean, default=True)
+
+
+class Allocation(Base):
+    """Persisted unit allocation with lifecycle, stock reservation, and idempotency."""
+    __tablename__ = "allocations"
+    __table_args__ = (
+        CheckConstraint("units >= 1", name="ck_allocation_units_pos"),
+        CheckConstraint("candidate_type IN ('blood_bank', 'donor')", name="ck_allocation_candidate_type"),
+        CheckConstraint("status IN ('active', 'released')", name="ck_allocation_status"),
+        CheckConstraint("candidate_type != 'donor' OR units = 1", name="ck_donor_single_unit"),
+        Index("ix_allocation_request", "request_id"),
+        Index("ix_allocation_candidate", "candidate_type", "candidate_id", "status"),
+        Index("ix_allocation_idempotency", "request_id", "idempotency_key"),
+    )
+    id: Mapped[str] = mapped_column(String(32), primary_key=True)
+    request_id: Mapped[str] = mapped_column(ForeignKey("blood_requests.id", ondelete="CASCADE"))
+    candidate_type: Mapped[str] = mapped_column(String(16))
+    candidate_id: Mapped[str] = mapped_column(String(32))
+    units: Mapped[int] = mapped_column(Integer)
+    status: Mapped[str] = mapped_column(String(32), default="active")
+    idempotency_key: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    payload_hash: Mapped[Optional[str]] = mapped_column(String(64), nullable=True)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)

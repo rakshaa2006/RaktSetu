@@ -14,7 +14,7 @@ def test_database_initialisation_creates_all_tables(tmp_path):
     init_db(engine)  # safe to repeat
     tables = set(inspect(engine).get_table_names())
     assert {"blood_requests", "blood_banks", "donors", "candidate_states", "ranking_snapshots",
-            "audit_events"} <= tables
+            "audit_events", "allocations"} <= tables
 
 
 def test_seeding_is_idempotent(tmp_path):

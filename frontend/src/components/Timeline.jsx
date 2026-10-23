@@ -1,5 +1,11 @@
 import { EVENT_TYPE_LABEL, formatDateTime, humanize } from "../utils/format.js";
 
+const ALLOC_LABELS = {
+  UNITS_ALLOCATED: "Units allocated",
+  ALLOCATION_RELEASED: "Allocation released",
+  ALLOCATIONS_CANCELLED: "Allocations cancelled",
+};
+
 export default function Timeline({ events, newestFirst = false }) {
   const list = newestFirst ? [...events].reverse() : events;
   return (
@@ -9,7 +15,7 @@ export default function Timeline({ events, newestFirst = false }) {
           <p className="tl-time">{formatDateTime(e.timestamp)}</p>
           <div className="tl-body">
             <p>
-              <strong>{EVENT_TYPE_LABEL[e.event_type] || humanize(e.event_type)}</strong>{" "}
+              <strong>{ALLOC_LABELS[e.event_type] || EVENT_TYPE_LABEL[e.event_type] || humanize(e.event_type)}</strong>{" "}
               {e.is_simulation ? <span className="badge badge-muted">Simulated event</span> : <span className="badge badge-plain">Recorded</span>}
             </p>
             <p>{e.reason}</p>

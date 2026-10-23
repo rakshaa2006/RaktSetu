@@ -36,6 +36,7 @@ export default function RequestDetail() {
   const request = useAsync(() => api.getRequest(id), [id]);
   const recs = useAsync(() => api.getRecommendations(id, viewing ?? undefined), [id, viewing]);
   const timeline = useAsync(() => api.getTimeline(id), [id, timelineKey]);
+  const allocations = useAsync(() => api.getAllocations(id), [id, timelineKey]);
 
   const current = recs.data?.current;
   const latestVersion = recs.data?.history?.[0]?.version;
@@ -67,13 +68,44 @@ export default function RequestDetail() {
     setActionError(null);
     setPending({ kind: "status", status });
   }
+  function startAllocate(candidate) {
+    setActionError(null);
+    setPending({ kind: "allocate", candidate, units: 1 });
+  }
+  function startRelease(allocation) {
+    setActionError(null);
+    setPending({ kind: "release", allocation });
+  }
 
   async function confirm({ reason, acknowledged }) {
     if (!pending || busy) return;
     setBusy(true);
     setActionError(null);
     try {
-      if (pending.kind === "event") {
+      if (pending.kind === "allocate") {
+        const { candidate, units } = pending;
+        const numUnits = candidate.candidate_type === "donor" ? 1 : Number(units || 1);
+        const result = await api.createAllocation(id, {
+          candidate_type: candidate.candidate_type,
+          candidate_id: candidate.candidate_id,
+          units: numUnits,
+        });
+        request.setData(result.request);
+        setNotice({
+          tone: "success",
+          title: "Units allocated",
+          text: `Allocated ${result.allocation.units} unit(s) from ${candidate.display_name}. Total: ${result.allocated_units}/${result.units_required} unit(s). Request status is now "${REQUEST_STATUS[result.request_status]?.label || result.request_status}".`,
+        });
+      } else if (pending.kind === "release") {
+        const { allocation } = pending;
+        const result = await api.releaseAllocation(id, allocation.id, { reason: reason || undefined });
+        request.setData(result.request);
+        setNotice({
+          tone: "success",
+          title: "Allocation released",
+          text: `Released ${result.allocation.units} unit(s). Remaining allocated: ${result.allocated_units}/${result.units_required} unit(s).`,
+        });
+      } else if (pending.kind === "event") {
         const { eventType, candidate } = pending;
         const result = await api.postEvent(id, {
           event_type: eventType,
@@ -158,8 +190,56 @@ export default function RequestDetail() {
       body: (
         <p>
           {fulfil
-            ? "Only record this after at least one option has been marked as confirmed available. Being ranked first or selected for review does not make a request fulfilled."
+            ? "Only record this after required units have been allocated. Candidate confirmation alone is not an allocation."
             : "The change will be added to the audit history."}
+        </p>
+      ),
+    };
+  } else if (pending?.kind === "allocate") {
+    const { candidate } = pending;
+    const remaining = req.remaining_units ?? Math.max(0, req.units_required - (req.allocated_units ?? 0));
+    const maxUnits = candidate.candidate_type === "donor" ? 1 : Math.max(1, Math.min(candidate.units_available ?? remaining, remaining));
+    dialog = {
+      title: `Allocate units from ${candidate.display_name}?`,
+      confirmLabel: "Allocate units",
+      askReason: false,
+      body: (
+        <>
+          <p><strong>{candidate.display_name}</strong> ({candidate.candidate_id})</p>
+          <p className="muted">Type: {candidate.candidate_type === "blood_bank" ? "Blood bank" : "Registered donor"}</p>
+          {candidate.candidate_type === "donor" ? (
+            <p>Donors contribute exactly <strong>1 unit</strong>. Verified consent is required.</p>
+          ) : (
+            <div className="field">
+              <label htmlFor="alloc-units">Units to allocate (1 to {maxUnits})</label>
+              <input
+                id="alloc-units"
+                type="number"
+                min="1"
+                max={maxUnits}
+                defaultValue={1}
+                onChange={(e) => {
+                  const val = Math.max(1, Math.min(maxUnits, parseInt(e.target.value, 10) || 1));
+                  setPending((p) => (p ? { ...p, units: val } : null));
+                }}
+              />
+            </div>
+          )}
+          <p className="small muted">
+            This operation atomically reserves stock, persists the allocation, and updates fulfillment status.
+          </p>
+        </>
+      ),
+    };
+  } else if (pending?.kind === "release") {
+    const { allocation } = pending;
+    dialog = {
+      title: `Release allocation ${allocation.id}?`,
+      confirmLabel: "Release units",
+      askReason: true,
+      body: (
+        <p>
+          This will release <strong>{allocation.units} unit(s)</strong> from {allocation.candidate_id} back to available stock and recompute request fulfillment.
         </p>
       ),
     };
@@ -188,6 +268,71 @@ export default function RequestDetail() {
       {actionError && <Alert tone="error" title="That action was not applied" onDismiss={() => setActionError(null)}>{actionError} Nothing was changed.</Alert>}
 
       <RequestSummary request={req} />
+
+      <section className="panel" aria-labelledby="alloc-title">
+        <h2 id="alloc-title">Units & allocations</h2>
+        <div className="stat-row">
+          <div className="stat">
+            <span className="small muted">Required units</span>
+            <span className="stat-n">{req.units_required}</span>
+          </div>
+          <div className="stat">
+            <span className="small muted">Allocated units</span>
+            <span className="stat-n">{req.allocated_units ?? 0}</span>
+          </div>
+          <div className="stat">
+            <span className="small muted">Remaining units</span>
+            <span className="stat-n">{req.remaining_units ?? Math.max(0, req.units_required - (req.allocated_units ?? 0))}</span>
+          </div>
+        </div>
+        {(!allocations.data || allocations.data.length === 0) ? (
+          <p className="muted">No units have been allocated yet. Confirm candidate availability below to allocate units.</p>
+        ) : (
+          <div className="allocations-table-wrap">
+            <table className="alloc-table" style={{ width: "100%", borderCollapse: "collapse", margin: "0.5rem 0 1rem" }}>
+              <thead>
+                <tr style={{ borderBottom: "2px solid var(--border)", textAlign: "left" }}>
+                  <th style={{ padding: "0.5rem" }}>Allocation ID</th>
+                  <th style={{ padding: "0.5rem" }}>Candidate</th>
+                  <th style={{ padding: "0.5rem" }}>Type</th>
+                  <th style={{ padding: "0.5rem" }}>Units</th>
+                  <th style={{ padding: "0.5rem" }}>Status</th>
+                  <th style={{ padding: "0.5rem" }}>Allocated at</th>
+                  <th style={{ padding: "0.5rem" }}>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {allocations.data.map((a) => (
+                  <tr key={a.id} style={{ borderBottom: "1px solid var(--border)" }}>
+                    <td style={{ padding: "0.5rem" }}><code>{a.id}</code></td>
+                    <td style={{ padding: "0.5rem" }}><strong>{a.candidate_id}</strong></td>
+                    <td style={{ padding: "0.5rem" }}>{a.candidate_type === "blood_bank" ? "Blood bank" : "Donor"}</td>
+                    <td style={{ padding: "0.5rem" }}><strong>{a.units}</strong></td>
+                    <td style={{ padding: "0.5rem" }}>
+                      <span className={`badge ${a.status === "active" ? "badge-good" : "badge-info"}`}>
+                        {a.status === "active" ? "Active" : "Released"}
+                      </span>
+                    </td>
+                    <td style={{ padding: "0.5rem" }} className="small muted">{formatDateTime(a.created_at)}</td>
+                    <td style={{ padding: "0.5rem" }}>
+                      {a.status === "active" && !readOnly && req.status !== "cancelled" && (
+                        <button
+                          type="button"
+                          className="btn btn-secondary btn-small"
+                          disabled={busy}
+                          onClick={() => startRelease(a)}
+                        >
+                          Release
+                        </button>
+                      )}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
 
       <section className="panel" aria-labelledby="status-title">
         <h2 id="status-title">Request status</h2>
@@ -248,7 +393,7 @@ export default function RequestDetail() {
           <ol className="candidate-list">
             {ranked.map((c) => (
               <li key={c.candidate_id}>
-                <CandidateCard item={c} meta={m} onAction={startEvent} busy={busy} readOnly={readOnly} />
+                <CandidateCard item={c} meta={m} onAction={startEvent} onAllocate={startAllocate} busy={busy} readOnly={readOnly} />
               </li>
             ))}
           </ol>
@@ -259,7 +404,7 @@ export default function RequestDetail() {
           <ul className="candidate-list">
             {excludedRelevant.map((c) => (
               <li key={c.candidate_id}>
-                <CandidateCard item={c} meta={m} onAction={startEvent} busy={busy} readOnly={readOnly} />
+                <CandidateCard item={c} meta={m} onAction={startEvent} onAllocate={startAllocate} busy={busy} readOnly={readOnly} />
               </li>
             ))}
           </ul>

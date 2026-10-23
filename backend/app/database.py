@@ -60,7 +60,7 @@ def make_session_factory(engine: Engine) -> sessionmaker:
 
 def init_db(engine: Engine) -> None:
     """Safe to call repeatedly: creates missing tables only."""
-    from app import models  # noqa: F401  (registers the tables)
+    from app.models import models  # noqa: F401  (registers the tables)
     Base.metadata.create_all(engine)
 
 

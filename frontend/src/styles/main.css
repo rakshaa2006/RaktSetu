@@ -155,6 +155,12 @@ details { margin: .5rem 0; } summary { cursor: pointer; min-height: 44px; displa
 .dialog-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: .6rem; margin-top: 1rem; }
 .map { height: 380px; border: 1px solid var(--border); border-radius: var(--radius); margin: .5rem 0; }
 
+/* allocations */
+.allocations-table-wrap { overflow-x: auto; margin: 0.5rem 0 1rem; }
+.alloc-table th, .alloc-table td { padding: 0.6rem 0.75rem; text-align: left; }
+.alloc-table tbody tr:hover { background: var(--info-tint); }
+.btn-small { min-height: 36px; padding: 0.35rem 0.75rem; font-size: 0.85rem; }
+
 @media (max-width: 640px) {
   html { font-size: 106.25%; }
   .candidate { grid-template-columns: 1fr; } .rank { width: 48px; height: 48px; font-size: 1.4rem; }

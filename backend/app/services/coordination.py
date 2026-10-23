@@ -16,6 +16,11 @@ from app.database import utcnow
 from app.models import BloodBank, BloodRequest, CandidateState, Donor, RankingSnapshot
 from app.schemas.schemas import RequestCreate
 from app.services.audit import record_event
+from app.services.allocations import (
+    get_allocated_units,
+    release_all_request_allocations,
+    release_allocations_for_candidate,
+)
 from app.services.ranking import CandidateInput, Override, RequestInput, describe_changes, rank_candidates
 from app.services.recovery import EVENT_RULES, plan_candidate_event
 
@@ -24,6 +29,7 @@ def get_request_or_404(db: Session, request_id: str) -> BloodRequest:
     req = db.get(BloodRequest, request_id)
     if req is None:
         raise NotFoundError(f"Blood request '{request_id}' was not found.")
+    req.allocated_units = get_allocated_units(db, req.id)
     return req
 
 
@@ -37,6 +43,7 @@ def create_request(db: Session, payload: RequestCreate) -> BloodRequest:
         hospital_latitude=payload.hospital_latitude, hospital_longitude=payload.hospital_longitude,
         urgency=payload.urgency, status="open", created_at=utcnow(), updated_at=utcnow(),
     )
+    req.allocated_units = 0
     db.add(req)
     db.flush()
     # No patient details in the audit message.
@@ -167,6 +174,9 @@ def process_event(db: Session, request_id: str, event_type: str, candidate_type:
     event = record_event(db, req.id, plan.audit_event_type, plan.reason, candidate_type, candidate_id,
                          plan.previous_status, plan.new_status, is_simulation=plan.simulated)
 
+    if event_type in ("STOCK_UNAVAILABLE", "DONOR_DECLINED", "DONOR_NO_RESPONSE"):
+        release_allocations_for_candidate(db, req.id, candidate_type, candidate_id, plan.reason)
+
     if event_type == "SELECT_FOR_REVIEW" and req.status == "open":
         validate_request_transition("open", "under_review")
         record_event(db, req.id, "REQUEST_STATUS_UPDATED",
@@ -175,6 +185,7 @@ def process_event(db: Session, request_id: str, event_type: str, candidate_type:
         req.status = "under_review"
 
     req.updated_at = now
+    req.allocated_units = get_allocated_units(db, req.id)
     db.flush()
     snap = generate_snapshot(db, req, trigger=f"{plan.audit_event_type} ({candidate_id})")
     db.commit()
@@ -189,19 +200,33 @@ def update_status(db: Session, request_id: str, new_status: str, reason: Optiona
     note = (reason or "").strip()
     if new_status == "cancelled" and len(note) < 3:
         raise RuleViolation("Please give a short reason (at least 3 characters) for cancelling.")
+
+    allocated = get_allocated_units(db, req.id)
     fulfilment = new_status in ("fulfilled", "partially_fulfilled")
     if fulfilment:
         if not simulated_confirmation:
             raise RuleViolation("Marking a request fulfilled needs an explicit coordinator confirmation of this "
                                 "simulated action.")
-        confirmed = db.scalar(select(func.count()).select_from(CandidateState).where(
-            CandidateState.request_id == req.id, CandidateState.status == "confirmed_available"))
-        if not confirmed:
-            raise RuleViolation("Record at least one option as confirmed available before marking the request "
-                                "fulfilled. Being ranked first or selected for review is not enough.")
+        if new_status == "fulfilled":
+            if allocated == 0:
+                raise RuleViolation("Cannot mark request fulfilled: no units have been allocated to this request. "
+                                    "Candidate availability confirmation is not an allocation.")
+            if allocated < req.units_required:
+                raise RuleViolation(f"Cannot mark request fulfilled: only {allocated} of {req.units_required} "
+                                    "unit(s) have been allocated. Request is partially fulfilled.")
+        elif new_status == "partially_fulfilled":
+            if allocated == 0:
+                raise RuleViolation("Cannot mark request partially fulfilled: no units have been allocated to this request.")
+            if allocated >= req.units_required:
+                raise RuleViolation(f"Request has all {allocated} units allocated and should be marked fulfilled.")
+
+    if new_status == "cancelled":
+        release_all_request_allocations(db, req.id, reason=note)
+
     previous = req.status
     req.status = new_status
     req.updated_at = utcnow()
+    req.allocated_units = get_allocated_units(db, req.id)
     text = f"Request status changed from {previous} to {new_status}."
     if fulfilment:
         text += " This is a simulated coordinator action, not a real medical transaction."

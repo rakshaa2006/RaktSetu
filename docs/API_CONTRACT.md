@@ -26,6 +26,9 @@ Remove trailing slashes from the configured base URL before joining paths.
 | GET | `/api/requests/{request_id}/timeline` | Get audit timeline |
 | POST | `/api/requests/{request_id}/events` | Record a coordination event; returns 201 |
 | PATCH | `/api/requests/{request_id}/status` | Update request status |
+| GET | `/api/requests/{request_id}/allocations` | List active and released allocations for a request |
+| POST | `/api/requests/{request_id}/allocations` | Persist an allocation & stock reservation; returns 201 |
+| POST | `/api/requests/{request_id}/allocations/{allocation_id}/release` | Release an allocation & recalculate fulfillment |
 | GET | `/api/dashboard/summary` | Dashboard summary |
 
 ## 4. Filters
@@ -77,7 +80,50 @@ and the backend's OpenAPI schema.
 Use only valid state transitions and event types defined by the backend.
 A no-response event is not acceptance or confirmation of availability.
 
-## 8. Frontend Integration
+## 8. Persisted Allocations and Shared Inventory
+### Create Allocation
+`POST /api/requests/{request_id}/allocations`
+
+Request body:
+```json
+{
+  "candidate_type": "blood_bank",
+  "candidate_id": "BB-001",
+  "units": 2,
+  "idempotency_key": "optional-uuid"
+}
+```
+
+Rules:
+- Requires candidate confirmation (`confirmed_available`) for the request.
+- Candidate blood group and component must be compatible with request.
+- Donors: maximum 1 unit per request; verified consent required (`consented_demo`). Duplicate active donor allocation on the same request is rejected.
+- Blood banks: units must not exceed usable stock minus active reservations across all requests (`available_to_allocate = usable_stock - active_reserved_units`).
+- Total allocated units `A` cannot exceed request required units `R` (over-allocation rejected).
+- Request status transitions automatically:
+  - `A = 0`: request is not fulfilled.
+  - `0 < A < R`: request is `partially_fulfilled`.
+  - `A = R`: request is `fulfilled`.
+- Atomic transaction: allocation, inventory reservation, request status update, and audit event are written together.
+- Idempotency: replaying with the same key and identical payload returns the existing allocation without double-reserving; conflicting payload returns HTTP 422.
+
+### Release Allocation
+`POST /api/requests/{request_id}/allocations/{allocation_id}/release`
+
+Optional request body:
+```json
+{
+  "reason": "Coordinator note explaining release"
+}
+```
+
+Releases reserved stock back to available inventory and recomputes request fulfillment state:
+- If `A` drops to 0, request transitions to `awaiting_confirmation`.
+- If `0 < A < R`, request transitions to `partially_fulfilled`.
+- Audit event `ALLOCATION_RELEASED` is recorded.
+- Request cancellation (`PATCH /status` with `cancelled`) automatically releases all active reservations.
+
+## 9. Frontend Integration
 - Use `VITE_API_BASE_URL` to configure the backend address.
 - Do not hardcode different base URLs throughout the frontend.
 - Handle loading, empty results, validation errors and network failures.

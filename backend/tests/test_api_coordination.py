@@ -156,7 +156,19 @@ def test_full_happy_path_to_simulated_fulfilment(client, created):
     assert post_event(client, rid, "CONFIRM_AVAILABILITY", top["candidate_type"], top["candidate_id"]).status_code == 201
     no_flag = client.patch(f"/api/requests/{rid}/status", json={"status": "fulfilled"})
     assert no_flag.status_code == 422
-    done = client.patch(f"/api/requests/{rid}/status", json={"status": "fulfilled", "simulated_confirmation": True})
+    # fulfilled without active allocation is refused (A = 0)
+    refused_alloc = client.patch(f"/api/requests/{rid}/status", json={"status": "fulfilled", "simulated_confirmation": True})
+    assert refused_alloc.status_code == 422
+    assert "no units" in refused_alloc.json()["detail"].lower()
+    # allocate 2 units to fulfill request
+    alloc_resp = client.post(f"/api/requests/{rid}/allocations", json={
+        "candidate_type": top["candidate_type"],
+        "candidate_id": top["candidate_id"],
+        "units": 2,
+    })
+    assert alloc_resp.status_code == 201
+    assert alloc_resp.json()["request_status"] == "fulfilled"
+    done = client.get(f"/api/requests/{rid}")
     assert done.status_code == 200 and done.json()["status"] == "fulfilled"
     events = client.get(f"/api/requests/{rid}/timeline").json()
     last_status = [e for e in events if e["event_type"] == "REQUEST_STATUS_UPDATED"][-1]
