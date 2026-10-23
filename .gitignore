@@ -41,3 +41,6 @@ secrets.json
 # Frontend generated output
 frontend/build/
 frontend/coverage/
+
+# Exclude stale duplicate backend copy
+/docs/backend/
