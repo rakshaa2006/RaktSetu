@@ -378,6 +378,8 @@ export default function BankInbox() {
       {/* Confirmation Dialog for Approval */}
       {pendingAction?.type === "approve" && (
         <ConfirmDialog
+          open={true}
+          busy={submitting}
           title="Approve blood request?"
           confirmLabel={submitting ? "Approving..." : "Confirm approval"}
           onCancel={() => !submitting && setPendingAction(null)}
