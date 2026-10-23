@@ -27,6 +27,7 @@ REQUEST_STATUSES = (
     "open", "under_review", "awaiting_confirmation",
     "partially_fulfilled", "fulfilled", "cancelled",
 )
+APPROVAL_STATUSES = ("pending", "approved", "rejected")
 CANDIDATE_STATUSES = (
     "reported_available", "awaiting_confirmation", "confirmed_available",
     "declined", "unavailable", "no_response", "stale", "unverified",

@@ -56,6 +56,8 @@ class BloodRequest(Base):
         CheckConstraint("units_required >= 1", name="ck_request_units"),
         Index("ix_request_status", "status"),
         Index("ix_request_created", "created_at"),
+        Index("ix_request_target_bank", "target_blood_bank_id"),
+        Index("ix_request_approval_status", "approval_status"),
     )
     id: Mapped[str] = mapped_column(String(32), primary_key=True)
     patient_name: Mapped[str] = mapped_column(String(100))
@@ -70,6 +72,11 @@ class BloodRequest(Base):
     hospital_longitude: Mapped[Optional[float]] = mapped_column(Float, nullable=True)
     urgency: Mapped[str] = mapped_column(String(16))
     status: Mapped[str] = mapped_column(String(32), default="open")
+    target_blood_bank_id: Mapped[Optional[str]] = mapped_column(ForeignKey("blood_banks.id", ondelete="SET NULL"), nullable=True)
+    approval_status: Mapped[Optional[str]] = mapped_column(String(16), nullable=True, default=None)
+    rejection_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    decided_at: Mapped[Optional[datetime]] = mapped_column(UTCDateTime, nullable=True)
+    decided_by_bank_id: Mapped[Optional[str]] = mapped_column(String(32), nullable=True)
     created_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     updated_at: Mapped[datetime] = mapped_column(UTCDateTime, default=utcnow)
     @property

@@ -24,18 +24,22 @@ function toApiError(status, data) {
   return new ApiError(`The server returned an unexpected error (code ${status}).`, { status });
 }
 
-async function request(path, { method = "GET", body, params } = {}) {
+async function request(path, { method = "GET", body, params, token } = {}) {
   const url = new URL(API_BASE_URL + path);
   if (params) {
     for (const [key, value] of Object.entries(params)) {
       if (value !== undefined && value !== null && value !== "") url.searchParams.set(key, value);
     }
   }
+  const headers = {};
+  if (body !== undefined) headers["Content-Type"] = "application/json";
+  if (token) headers["Authorization"] = `Bearer ${token}`;
+
   let response;
   try {
     response = await fetch(url, {
       method,
-      headers: body !== undefined ? { "Content-Type": "application/json" } : undefined,
+      headers: Object.keys(headers).length ? headers : undefined,
       body: body !== undefined ? JSON.stringify(body) : undefined,
     });
   } catch {
@@ -73,4 +77,16 @@ export const api = {
   createAllocation: (id, body) => request(`/api/requests/${enc(id)}/allocations`, { method: "POST", body }),
   releaseAllocation: (id, allocId, body) =>
     request(`/api/requests/${enc(id)}/allocations/${enc(allocId)}/release`, { method: "POST", body }),
+  getBankInbox: (bankId, { status, approval_status, limit, offset, token } = {}) => {
+    const path = bankId ? `/api/blood-banks/${enc(bankId)}/inbox` : "/api/blood-banks/inbox";
+    return request(path, { params: { status, approval_status, limit, offset }, token });
+  },
+  approveRequest: (id, { token, bankId } = {}) => {
+    const path = bankId ? `/api/blood-banks/${enc(bankId)}/requests/${enc(id)}/approve` : `/api/requests/${enc(id)}/approve`;
+    return request(path, { method: "POST", token });
+  },
+  rejectRequest: (id, body, { token, bankId } = {}) => {
+    const path = bankId ? `/api/blood-banks/${enc(bankId)}/requests/${enc(id)}/reject` : `/api/requests/${enc(id)}/reject`;
+    return request(path, { method: "POST", body, token });
+  },
 };

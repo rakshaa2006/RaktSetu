@@ -6,6 +6,7 @@ import Alert from "./Alert.jsx";
 const NAV = [
   { to: "/", label: "Dashboard", end: true },
   { to: "/requests/new", label: "New request" },
+  { to: "/bank-inbox", label: "Bank inbox" },
   { to: "/blood-banks", label: "Blood banks" },
   { to: "/donors", label: "Donors" },
 ];

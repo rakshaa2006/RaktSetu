@@ -34,6 +34,14 @@ def get_request_or_404(db: Session, request_id: str) -> BloodRequest:
 
 
 def create_request(db: Session, payload: RequestCreate) -> BloodRequest:
+    target_bank_id = payload.target_blood_bank_id
+    approval_status = None
+    if target_bank_id:
+        bank = db.get(BloodBank, target_bank_id)
+        if bank is None:
+            raise RuleViolation(f"Target blood bank '{target_bank_id}' was not found.")
+        approval_status = "pending"
+
     req = BloodRequest(
         id="REQ-" + uuid.uuid4().hex[:8].upper(),
         patient_name=payload.patient_name, patient_age=payload.patient_age,
@@ -41,15 +49,19 @@ def create_request(db: Session, payload: RequestCreate) -> BloodRequest:
         component=payload.component, units_required=payload.units_required,
         hospital_name=payload.hospital_name, hospital_location=payload.hospital_location,
         hospital_latitude=payload.hospital_latitude, hospital_longitude=payload.hospital_longitude,
-        urgency=payload.urgency, status="open", created_at=utcnow(), updated_at=utcnow(),
+        urgency=payload.urgency, status="open",
+        target_blood_bank_id=target_bank_id, approval_status=approval_status,
+        created_at=utcnow(), updated_at=utcnow(),
     )
     req.allocated_units = 0
     db.add(req)
     db.flush()
     # No patient details in the audit message.
-    record_event(db, req.id, "REQUEST_CREATED",
-                 f"Blood request created ({req.units_required} unit(s) of {req.component}, urgency {req.urgency}).",
-                 new_state="open")
+    audit_desc = f"Blood request created ({req.units_required} unit(s) of {req.component}, urgency {req.urgency}"
+    if target_bank_id:
+        audit_desc += f", targeted to blood bank '{target_bank_id}'"
+    audit_desc += ")."
+    record_event(db, req.id, "REQUEST_CREATED", audit_desc, new_state="open")
     generate_snapshot(db, req, trigger="Request created")
     db.commit()
     return req

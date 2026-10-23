@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useMemo, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import Alert from "../components/Alert.jsx";
 import Field, { describedBy } from "../components/Field.jsx";
@@ -10,6 +10,7 @@ import { api } from "../services/api.js";
 const INITIAL = {
   patient_name: "", patient_age: "", patient_gender: "", patient_blood_group: "", component: "",
   units_required: "", hospital_name: "", location_id: "", other_location: "", urgency: "",
+  target_blood_bank_id: "",
 };
 
 function validate(v, locations) {
@@ -28,6 +29,7 @@ function validate(v, locations) {
   if (!v.location_id) e.location_id = "Choose the hospital location.";
   if (v.location_id === "OTHER" && v.other_location.trim().length < 2) e.other_location = "Type the location name.";
   if (!v.urgency) e.urgency = "Choose how urgent this request is.";
+  if (!v.target_blood_bank_id) e.target_blood_bank_id = "Choose the target blood bank to review and approve this request.";
   return e;
 }
 
@@ -36,17 +38,33 @@ export default function CreateRequest() {
   const navigate = useNavigate();
   const meta = useAsync(() => api.meta(), []);
   const locations = useAsync(() => api.locations(), []);
+  const bloodBanks = useAsync(() => api.bloodBanks(), []);
   const [values, setValues] = useState(INITIAL);
   const [errors, setErrors] = useState({});
   const [submitting, setSubmitting] = useState(false);
   const [serverError, setServerError] = useState(null);
 
-  if ((meta.loading && !meta.data) || (locations.loading && !locations.data)) return <Spinner label="Loading form..." />;
-  if (meta.error || locations.error) {
+  const uniqueBanks = useMemo(() => {
+    if (!bloodBanks.data) return [];
+    const seen = new Set();
+    const result = [];
+    for (const b of bloodBanks.data) {
+      if (!seen.has(b.id)) {
+        seen.add(b.id);
+        result.push(b);
+      }
+    }
+    return result.sort((a, b) => a.id.localeCompare(b.id));
+  }, [bloodBanks.data]);
+
+  if ((meta.loading && !meta.data) || (locations.loading && !locations.data) || (bloodBanks.loading && !bloodBanks.data)) {
+    return <Spinner label="Loading form..." />;
+  }
+  if (meta.error || locations.error || bloodBanks.error) {
     return (
       <Alert tone="error" title="The form could not be loaded">
-        {(meta.error || locations.error).message}{" "}
-        <button type="button" className="link-btn" onClick={() => { meta.reload(); locations.reload(); }}>Try again</button>
+        {(meta.error || locations.error || bloodBanks.error).message}{" "}
+        <button type="button" className="link-btn" onClick={() => { meta.reload(); locations.reload(); bloodBanks.reload(); }}>Try again</button>
       </Alert>
     );
   }
@@ -81,6 +99,7 @@ export default function CreateRequest() {
       hospital_latitude: loc ? loc.latitude : null,
       hospital_longitude: loc ? loc.longitude : null,
       urgency: values.urgency,
+      target_blood_bank_id: values.target_blood_bank_id,
     };
     setSubmitting(true);
     try {
@@ -134,6 +153,17 @@ export default function CreateRequest() {
 
         <fieldset className="panel">
           <legend>Blood request details</legend>
+          <Field id="target_blood_bank_id" label="Target blood bank for review" required error={errors.target_blood_bank_id}
+            hint="Under the approval workflow, this blood bank must explicitly review and approve your request before fulfillment.">
+            <select {...props("target_blood_bank_id")} aria-describedby={describedBy("target_blood_bank_id", true, errors.target_blood_bank_id)}>
+              <option value="">Choose a blood bank...</option>
+              {uniqueBanks.map((b) => (
+                <option key={b.id} value={b.id}>
+                  {b.name} ({b.id} &bull; {b.location})
+                </option>
+              ))}
+            </select>
+          </Field>
           <div className="grid-3">
             <Field id="component" label="Blood component needed" required error={errors.component}>
               <select {...props("component")}>

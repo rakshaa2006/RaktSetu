@@ -29,6 +29,16 @@ export default function RequestSummary({ request }) {
             <div><dt>Urgency</dt><dd><StatusBadge kind="urgency" value={request.urgency} /></dd></div>
             <div><dt>Status</dt><dd><StatusBadge kind="request" value={request.status} /></dd></div>
             <div><dt>Hospital</dt><dd>{request.hospital_name}, {request.hospital_location}</dd></div>
+            <div><dt>Target blood bank</dt><dd>{request.target_blood_bank_id || <span className="muted">None (general pool)</span>}</dd></div>
+            {request.approval_status && (
+              <div><dt>Bank approval</dt><dd><StatusBadge kind="approval" value={request.approval_status} /></dd></div>
+            )}
+            {request.decided_by_bank_id && (
+              <div><dt>Decided by</dt><dd>{request.decided_by_bank_id} ({formatDateTime(request.decided_at)})</dd></div>
+            )}
+            {request.approval_status === "rejected" && request.rejection_reason && (
+              <div><dt>Rejection reason</dt><dd className="field-error" style={{ margin: 0 }}>{request.rejection_reason}</dd></div>
+            )}
             <div><dt>Created</dt><dd>{formatDateTime(request.created_at)}</dd></div>
           </dl>
         </div>

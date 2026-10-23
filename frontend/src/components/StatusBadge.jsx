@@ -1,10 +1,11 @@
-import { CANDIDATE_STATUS, REQUEST_STATUS, URGENCY, VERIFICATION, humanize } from "../utils/format.js";
+import { APPROVAL_STATUS, CANDIDATE_STATUS, REQUEST_STATUS, URGENCY, VERIFICATION, humanize } from "../utils/format.js";
 
 const TABLES = {
   verification: VERIFICATION,
   candidate: CANDIDATE_STATUS,
   request: REQUEST_STATUS,
   urgency: URGENCY,
+  approval: APPROVAL_STATUS,
 };
 
 // Always renders a symbol AND a text label, so meaning never depends on colour.

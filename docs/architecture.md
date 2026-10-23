@@ -56,6 +56,23 @@ Fulfillment is strictly derived from active allocated units (A) versus required 
 - Allocation release recomputes fulfillment: if A becomes 0, status returns to awaiting_confirmation.
 - Request cancellation automatically releases all active allocations back to available stock.
 
+## Blood Request Approval Workflow
+Patients and hospitals can submit requests targeted to a specific blood bank by specifying `target_blood_bank_id`.
+- Initial approval state: `approval_status` is initialized to `"pending"`.
+- Separation of concerns: Approval is an administrative decision confirming willingness to process the request. It is strictly separate from stock reservation, allocation, issue, or fulfillment.
+- Bank Inbox: Target blood banks view incoming pending requests via `GET /api/blood-banks/inbox` or `GET /api/blood-banks/{bank_id}/inbox`.
+- Explicit Decisions:
+  - Approve: Transitions `approval_status` to `"approved"`, records `decided_at` and `decided_by_bank_id`, advances `open` requests to `under_review`, and emits `REQUEST_APPROVED` audit event.
+  - Reject: Transitions `approval_status` to `"rejected"`, records `rejection_reason` (bounded 5-300 characters), `decided_at` and `decided_by_bank_id`, and emits `REQUEST_REJECTED` audit event.
+- Decision Immutability, Transaction Integrity & Concurrency: Exactly one decision is allowed per request. Decisions are executed using atomic conditional database updates (`UPDATE ... WHERE id = :id AND target_blood_bank_id = :bank_id AND approval_status = 'pending'`), ensuring safety across multiple threads, processes, and database sessions without relying solely on in-process locks. Status mutation, audit events, and ranking snapshots participate in a single transaction; failure of any step causes a complete rollback. Losing or repeated attempts return HTTP 409 Conflict.
+
+## Authentication & Demo Identity Model
+Bank-specific operations require a Bearer token mapped via `RAKTSETU_DEMO_TOKENS` environment variable (JSON or key:value format).
+- Fail-closed: If unconfigured, empty, or token is invalid, endpoints return HTTP 401 Unauthorized (`WWW-Authenticate: Bearer`).
+- Token-derived identity: The acting blood bank is determined strictly from the verified bearer token, never from client-provided payload or query parameters.
+- Cross-bank isolation: Accessing another blood bank's inbox or deciding another bank's targeted requests returns HTTP 403 Forbidden.
+- Security boundary disclaimer: Demo identities are purely for hackathon demonstration and testing. They do not authenticate real employees and must not be used in production.
+
 ## Shared Inventory & Concurrency
 Shared blood-bank stock is enforced across all concurrent requests:
 `available_to_allocate = usable_stock - active_reserved_units`

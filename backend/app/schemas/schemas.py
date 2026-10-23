@@ -6,16 +6,18 @@ from typing import Annotated, Any, Dict, List, Literal, Optional
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
-from app.core.rules import (BLOOD_GROUPS, CANDIDATE_STATUSES, COMPONENTS, GENDERS, REQUEST_STATUSES, URGENCIES)
+from app.core.rules import (APPROVAL_STATUSES, BLOOD_GROUPS, CANDIDATE_STATUSES, COMPONENTS, GENDERS, REQUEST_STATUSES, URGENCIES)
 
 BloodGroup = Literal["A+", "A-", "B+", "B-", "AB+", "AB-", "O+", "O-"]
 Component = Literal["Whole Blood", "Packed Red Cells", "Platelets", "Plasma"]
 Gender = Literal["Female", "Male", "Other", "Prefer not to say"]
 Urgency = Literal["Critical", "Urgent", "Routine"]
 RequestStatus = Literal["open", "under_review", "awaiting_confirmation", "partially_fulfilled", "fulfilled", "cancelled"]
+ApprovalStatus = Literal["pending", "approved", "rejected"]
 CandidateType = Literal["blood_bank", "donor"]
 EventType = Literal["STOCK_UNAVAILABLE", "DONOR_DECLINED", "DONOR_NO_RESPONSE", "DATA_STALE",
-                    "SELECT_FOR_REVIEW", "CONFIRM_AVAILABILITY", "REINSTATE_CANDIDATE", "COORDINATOR_NOTE"]
+                    "SELECT_FOR_REVIEW", "CONFIRM_AVAILABILITY", "REINSTATE_CANDIDATE", "COORDINATOR_NOTE",
+                    "REQUEST_APPROVED", "REQUEST_REJECTED"]
 StrictAge = Annotated[int, Field(strict=True, ge=0, le=120)]
 StrictUnits = Annotated[int, Field(strict=True, ge=1, le=20)]
 
@@ -35,6 +37,7 @@ class RequestCreate(BaseModel):
     hospital_latitude: Optional[float] = Field(default=None, ge=-90, le=90)
     hospital_longitude: Optional[float] = Field(default=None, ge=-180, le=180)
     urgency: Urgency
+    target_blood_bank_id: Optional[str] = Field(default=None, min_length=1, max_length=32, pattern=r"^[A-Za-z0-9\-_]+$")
 
     @field_validator("patient_name")
     @classmethod
@@ -66,11 +69,22 @@ class RequestOut(BaseModel):
     hospital_longitude: Optional[float] = None
     urgency: str
     status: str
+    target_blood_bank_id: Optional[str] = None
+    approval_status: Optional[str] = None
+    rejection_reason: Optional[str] = None
+    decided_at: Optional[datetime] = None
+    decided_by_bank_id: Optional[str] = None
     created_at: datetime
     updated_at: datetime
     is_demo_data: bool = True
     allocated_units: int = 0
     remaining_units: int = 0
+
+
+class RejectionCreate(BaseModel):
+    model_config = ConfigDict(str_strip_whitespace=True, extra="forbid")
+
+    reason: str = Field(min_length=5, max_length=300)
 
 
 class AllocationCreate(BaseModel):
@@ -281,6 +295,7 @@ class MetaOut(BaseModel):
     genders: List[str]
     urgencies: List[str]
     request_statuses: List[str]
+    approval_statuses: List[str] = Field(default_factory=lambda: list(APPROVAL_STATUSES))
     candidate_statuses: List[str]
     request_transitions: Dict[str, List[str]]
     candidate_transitions: Dict[str, List[str]]

@@ -1,5 +1,6 @@
 import { Link, Route, Routes } from "react-router-dom";
 import Layout from "./components/Layout.jsx";
+import BankInbox from "./pages/BankInbox.jsx";
 import BloodBanks from "./pages/BloodBanks.jsx";
 import CreateRequest from "./pages/CreateRequest.jsx";
 import Dashboard from "./pages/Dashboard.jsx";
@@ -23,6 +24,7 @@ export default function App() {
       <Routes>
         <Route path="/" element={<Dashboard />} />
         <Route path="/requests/new" element={<CreateRequest />} />
+        <Route path="/bank-inbox" element={<BankInbox />} />
         <Route path="/requests/:id" element={<RequestDetail />} />
         <Route path="/requests/:id/timeline" element={<TimelinePage />} />
         <Route path="/blood-banks" element={<BloodBanks />} />

@@ -50,6 +50,12 @@ export const REQUEST_STATUS = {
   cancelled: { label: "Cancelled", symbol: "✖", tone: "muted" },
 };
 
+export const APPROVAL_STATUS = {
+  pending: { label: "Pending bank review", symbol: "…", tone: "warn" },
+  approved: { label: "Approved by bank", symbol: "✔", tone: "good" },
+  rejected: { label: "Rejected by bank", symbol: "✖", tone: "bad" },
+};
+
 export const URGENCY = {
   Critical: { label: "Critical", symbol: "!", tone: "bad" },
   Urgent: { label: "Urgent", symbol: "▲", tone: "warn" },

@@ -260,9 +260,30 @@ export default function RequestDetail() {
         <div className="badges">
           <StatusBadge kind="urgency" value={req.urgency} />
           <StatusBadge kind="request" value={req.status} />
+          {req.approval_status && <StatusBadge kind="approval" value={req.approval_status} />}
           <span className="badge badge-plain">Demonstration data</span>
         </div>
       </div>
+
+      {req.approval_status === "rejected" && (
+        <Alert tone="error" title="Blood request rejected by blood bank">
+          Blood bank <strong>{req.decided_by_bank_id || req.target_blood_bank_id}</strong> rejected this request:
+          <br /><em>"{req.rejection_reason}"</em>
+        </Alert>
+      )}
+
+      {req.approval_status === "pending" && (
+        <Alert tone="warning" title="Awaiting blood bank approval">
+          This request is assigned to <strong>{req.target_blood_bank_id}</strong> and is awaiting explicit bank review and decision.
+        </Alert>
+      )}
+
+      {req.approval_status === "approved" && (
+        <Alert tone="success" title="Approved by blood bank">
+          Blood bank <strong>{req.decided_by_bank_id || req.target_blood_bank_id}</strong> has approved handling this request.
+          <br /><span className="small muted">Note: Approval confirms readiness to handle the requirement; unit allocation remains a separate step.</span>
+        </Alert>
+      )}
 
       {notice && <Alert tone={notice.tone} title={notice.title} onDismiss={() => setNotice(null)}>{notice.text}</Alert>}
       {actionError && <Alert tone="error" title="That action was not applied" onDismiss={() => setActionError(null)}>{actionError} Nothing was changed.</Alert>}

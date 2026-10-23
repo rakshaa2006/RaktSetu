@@ -123,6 +123,7 @@ function RequestRow({ r }) {
       <span className="badges">
         <StatusBadge kind="urgency" value={r.urgency} />
         <StatusBadge kind="request" value={r.status} />
+        {r.approval_status && <StatusBadge kind="approval" value={r.approval_status} />}
       </span>
       <span className="small muted">Created {formatDateTime(r.created_at)}</span>
     </Link>
