@@ -178,3 +178,29 @@ def test_manual_recalculation_adds_a_version_and_event(client, created):
     assert body["current"]["version"] == 2
     assert client.get(f"/api/requests/{rid}/timeline").json()[-1]["event_type"] == "RANKING_RECALCULATED"
     assert client.get(f"/api/requests/{rid}/recommendations", params={"version": 99}).status_code == 404
+
+def test_not_consented_donor_cannot_be_selected_or_confirmed(client, created):
+    rid = created["id"]
+
+    selected = post_event(
+        client, rid, "SELECT_FOR_REVIEW", "donor", "DN-011"
+    )
+    assert selected.status_code == 422
+    assert "consent" in selected.json()["detail"].lower()
+
+    confirmed = post_event(
+        client, rid, "CONFIRM_AVAILABILITY", "donor", "DN-011"
+    )
+    assert confirmed.status_code == 422
+    assert "consent" in confirmed.json()["detail"].lower()
+
+
+def test_unknown_consent_donor_cannot_be_confirmed(client, created):
+    rid = created["id"]
+
+    selected = post_event(client, rid, "SELECT_FOR_REVIEW", "donor", "DN-018")
+    assert selected.status_code == 201
+
+    response = post_event(client, rid, "CONFIRM_AVAILABILITY", "donor", "DN-018")
+    assert response.status_code == 422
+    assert "consent" in response.json()["detail"].lower()
