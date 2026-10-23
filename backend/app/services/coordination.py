@@ -138,10 +138,13 @@ def process_event(db: Session, request_id: str, event_type: str, candidate_type:
     record = _find_record(db, candidate_type, candidate_id)
 
     if candidate_type == "donor":
-        if event_type in ("SELECT_FOR_REVIEW", "CONFIRM_AVAILABILITY") and record.consent_status == "not_consented":
+        if event_type == "SELECT_FOR_REVIEW" and record.consent_status == "not_consented":
             raise RuleViolation("Donor has not consented to be contacted in this demonstration.")
-        if event_type == "CONFIRM_AVAILABILITY" and record.consent_status != "consented_demo":
-            raise RuleViolation("Donor consent must be verified before availability can be confirmed.")
+        if event_type in ("CONFIRM_AVAILABILITY", "DONOR_DECLINED", "DONOR_NO_RESPONSE") \
+                and record.consent_status != "consented_demo":
+            raise RuleViolation(
+                "Verified donor consent is required before confirming availability or recording a donor response."
+            )
 
     state_row = db.scalar(select(CandidateState).where(
         CandidateState.request_id == req.id, CandidateState.candidate_type == candidate_type,

@@ -1,3 +1,5 @@
+import pytest
+
 from tests.conftest import post_event, recs
 
 
@@ -195,7 +197,22 @@ def test_not_consented_donor_cannot_be_selected_or_confirmed(client, created):
     assert "consent" in confirmed.json()["detail"].lower()
 
 
-def test_unknown_consent_donor_cannot_be_confirmed(client, created):
+@pytest.mark.parametrize(
+    ("candidate_id", "event_type"),
+    [
+        ("DN-011", "DONOR_DECLINED"),
+        ("DN-011", "DONOR_NO_RESPONSE"),
+        ("DN-018", "DONOR_DECLINED"),
+        ("DN-018", "DONOR_NO_RESPONSE"),
+    ],
+)
+def test_unverified_consent_donor_cannot_record_response(client, created, candidate_id, event_type):
+    response = post_event(client, created["id"], event_type, "donor", candidate_id)
+    assert response.status_code == 422
+    assert "consent" in response.json()["detail"].lower()
+
+
+def test_unknown_consent_donor_can_be_selected_but_not_confirmed(client, created):
     rid = created["id"]
 
     selected = post_event(client, rid, "SELECT_FOR_REVIEW", "donor", "DN-018")
@@ -204,3 +221,22 @@ def test_unknown_consent_donor_cannot_be_confirmed(client, created):
     response = post_event(client, rid, "CONFIRM_AVAILABILITY", "donor", "DN-018")
     assert response.status_code == 422
     assert "consent" in response.json()["detail"].lower()
+
+
+@pytest.mark.parametrize("event_type", ["CONFIRM_AVAILABILITY", "DONOR_DECLINED", "DONOR_NO_RESPONSE"])
+def test_consented_donor_can_record_response_events(client, created, event_type):
+    donors = client.get("/api/donors").json()
+    donor = next(
+        d for d in donors
+        if d["consent_status"] == "consented_demo"
+        and d["blood_group"] in ("O+", "O-")
+        and d["availability_status"] in ("reported_available", "confirmed_available")
+        and d["response_status"] != "declined_recently"
+    )
+    rid = created["id"]
+    if event_type == "CONFIRM_AVAILABILITY":
+        selected = post_event(client, rid, "SELECT_FOR_REVIEW", "donor", donor["id"])
+        assert selected.status_code == 201
+
+    response = post_event(client, rid, event_type, "donor", donor["id"])
+    assert response.status_code == 201, response.text
