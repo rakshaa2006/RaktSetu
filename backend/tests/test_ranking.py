@@ -90,7 +90,7 @@ def test_nonresponse_is_never_acceptance():
     r = rank_candidates(req(), [donor("D1"), bank("B1", status="unverified")], ov, now=NOW)
     nr = [i for i in r["ranked"] if i["candidate_id"] == "D1"][0]
     assert nr["review_status"] == "no_response"
-    assert nr["verification_label"] != "confirmed"
+    assert nr["verification_label"] == "not_confirmed"
     assert any("not acceptance" in t.lower() for t in nr["reduced_priority_reasons"])
     assert r["ranked"][-1]["candidate_id"] == "D1"
 

@@ -78,6 +78,7 @@ def verification_label(record_status: str, freshness: str) -> str:
 LABEL_LEGEND = {
     "confirmed": "Confirmed - availability was verified and the record is recent.",
     "reported": "Reported - availability was stated but not verified; record is recent.",
+    "not_confirmed": "Not confirmed - no response was received; no response is not acceptance.",
     "stale": "Stale - the record is older than the recent window; ranked lower until re-checked.",
     "unverified": "Unverified - source has not verified this record.",
     "unavailable": "Unavailable - the record says it cannot supply; not recommended.",

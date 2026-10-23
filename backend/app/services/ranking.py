@@ -105,10 +105,10 @@ def _units_text(n: int) -> str:
 def _evaluate(req: RequestInput, c: CandidateInput, ov: Optional[Override],
               now: datetime, cfg: FreshnessConfig) -> Dict[str, Any]:
     fr = assess_freshness(c.last_updated, now, cfg)
-    label = verification_label(c.record_status, fr.freshness)
     dist = distance_km(req.latitude, req.longitude, c.latitude, c.longitude)
     match = match_blood(req.blood_group, c.blood_group, req.component)
     status = ov.status if ov else derive_candidate_status(c.record_status)
+    label = "not_confirmed" if status == "no_response" else verification_label(c.record_status, fr.freshness)
 
     exclusions: List[Tuple[str, str]] = []
     reduced: List[str] = []

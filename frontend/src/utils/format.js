@@ -23,6 +23,7 @@ export function humanize(value) {
 export const VERIFICATION = {
   confirmed: { label: "Confirmed", symbol: "✔", tone: "good" },
   reported: { label: "Reported", symbol: "●", tone: "info" },
+  not_confirmed: { label: "Not confirmed", symbol: "?", tone: "warn" },
   stale: { label: "Stale", symbol: "⏱", tone: "warn" },
   unverified: { label: "Unverified", symbol: "?", tone: "muted" },
   unavailable: { label: "Unavailable", symbol: "✖", tone: "bad" },

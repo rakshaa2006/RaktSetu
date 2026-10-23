@@ -48,7 +48,7 @@ TERMINAL_REQUEST_STATUSES = ("fulfilled", "cancelled")
 CANDIDATE_TRANSITIONS = {
     "reported_available": {"awaiting_confirmation", "declined", "unavailable", "no_response", "stale"},
     "awaiting_confirmation": {"confirmed_available", "declined", "unavailable", "no_response", "stale"},
-    "confirmed_available": {"awaiting_confirmation", "declined", "unavailable", "stale"},
+    "confirmed_available": {"awaiting_confirmation", "declined", "unavailable", "no_response", "stale"},
     "unverified": {"reported_available", "awaiting_confirmation", "declined", "unavailable", "no_response", "stale"},
     "stale": {"reported_available", "awaiting_confirmation", "declined", "unavailable", "no_response"},
     "no_response": {"awaiting_confirmation", "reported_available", "declined", "unavailable", "stale"},

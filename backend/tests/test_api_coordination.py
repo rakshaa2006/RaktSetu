@@ -77,7 +77,7 @@ def test_nonresponse_is_not_acceptance(client, created):
     assert r.status_code == 201
     item = next(i for i in r.json()["recommendations"]["current"]["ranked"] if i["candidate_id"] == donor["candidate_id"])
     assert item["review_status"] == "no_response"
-    assert item["verification_label"] != "confirmed"
+    assert item["verification_label"] == "not_confirmed"
     assert item["rank"] > donor["rank"]
 
 

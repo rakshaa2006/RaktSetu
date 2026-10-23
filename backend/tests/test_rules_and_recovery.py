@@ -66,6 +66,7 @@ def test_failure_events_plan_the_right_states():
     assert plan_candidate_event("STOCK_UNAVAILABLE", "blood_bank", "reported_available", None).new_status == "unavailable"
     assert plan_candidate_event("DONOR_DECLINED", "donor", "reported_available", None).new_status == "declined"
     assert plan_candidate_event("DONOR_NO_RESPONSE", "donor", "reported_available", None).new_status == "no_response"
+    assert plan_candidate_event("DONOR_NO_RESPONSE", "donor", "confirmed_available", None).new_status == "no_response"
     assert plan_candidate_event("DATA_STALE", "donor", "reported_available", None).new_status == "stale"
 
 
